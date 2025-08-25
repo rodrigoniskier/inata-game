@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Imunidade Inata – O Universo de Kaoru</title>
+    <!-- Carrega a biblioteca Three.js e controles de câmera via CDN -->
+    <!-- Three.js fornece a base para renderização WebGL 3D -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <!-- Tela de login onde o jogador escolhe seu nome -->
+    <div id="loginScreen">
+        <h1>Imunidade Inata: O Universo de Kaoru</h1>
+        <p>Bem‑vindo(a)! Insira seu nome para começar sua jornada:</p>
+        <input id="playerName" type="text" placeholder="Seu nome" />
+        <button id="startButton">Iniciar Jogo</button>
+    </div>
+
+    <!-- Canvas WebGL utilizado pelo Three.js -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Sobreposições para diálogos, quizzes e puzzles -->
+    <div id="overlay">
+        <!-- Caixa de diálogo com avatar e texto -->
+        <div id="dialogueBox" class="overlayBox" style="display:none">
+            <img id="dialogueAvatar" src="" alt="avatar" />
+            <div id="dialogueContent">
+                <p id="dialogueText"></p>
+                <button id="dialogueNext">Avançar</button>
+            </div>
+        </div>
+        <!-- Contêiner para quizzes (perguntas de múltipla escolha) -->
+        <div id="quizContainer" class="overlayBox" style="display:none"></div>
+        <!-- Contêiner para puzzles (sliders etc.) -->
+        <div id="puzzleContainer" class="overlayBox" style="display:none"></div>
+    </div>
+
+    <!-- Tela de ranking local -->
+    <div id="scoreScreen" style="display:none">
+        <h2>Ranking Local</h2>
+        <ul id="scoreList"></ul>
+        <button id="playAgain">Jogar Novamente</button>
+    </div>
+
+    <!-- Script principal da aplicação -->
+    <script src="main.js"></script>
+</body>
+</html>
