@@ -1,51 +1,611 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Imunidade Inata – O Universo de Kaoru</title>
-    <!-- Carrega a biblioteca Three.js e controles de câmera via CDN -->
-    <!-- Three.js fornece a base para renderização WebGL 3D -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-    <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Saga da Imunidade 2.0: O Duelo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+        }
+        #game-board-container {
+            position: relative;
+        }
+        #path-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        #game-board {
+            position: relative;
+            width: 100%;
+            height: 70vh;
+            z-index: 2;
+        }
+        .board-cell {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #1f2937;
+            border: 2px solid #d1d5db;
+            transition: transform 0.2s;
+            cursor: pointer;
+            background-color: rgba(224, 231, 255, 0.8); /* Added opacity */
+        }
+        .board-cell:hover {
+            transform: scale(1.1);
+        }
+        
+        .player-token {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            position: absolute;
+            transition: all 0.2s linear;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            font-size: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        #player1-token { background-color: #2563eb; } /* Azul */
+        #player2-token { background-color: #f59e0b; } /* Amarelo */
+
+        .dice-container { perspective: 1000px; }
+        .dice { width: 60px; height: 60px; position: relative; transform-style: preserve-3d; transition: transform 1.5s ease-out; }
+        .dice-face { position: absolute; width: 60px; height: 60px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #1f2937; font-size: 28px; display: flex; align-items: center; justify-content: center; }
+        .front  { transform: rotateY(0deg) translateZ(30px); }
+        .back   { transform: rotateY(180deg) translateZ(30px); }
+        .right  { transform: rotateY(90deg) translateZ(30px); }
+        .left   { transform: rotateY(-90deg) translateZ(30px); }
+        .top    { transform: rotateX(90deg) translateZ(30px); }
+        .bottom { transform: rotateX(-90deg) translateZ(30px); }
+        
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+        #victory-screen, #start-screen {
+            display: none;
+        }
+        .emoji-btn {
+            transition: transform 0.2s;
+            font-size: 1.75rem;
+            padding: 0.25rem;
+            border-radius: 0.5rem;
+            border: 2px solid transparent;
+        }
+        .emoji-btn:hover {
+            transform: scale(1.2);
+        }
+        .emoji-btn.selected {
+            border-color: #2563eb;
+            background-color: #dbeafe;
+        }
+    </style>
 </head>
-<body>
-    <!-- Tela de login onde o jogador escolhe seu nome -->
-    <div id="loginScreen">
-        <h1>Imunidade Inata: O Universo de Kaoru</h1>
-        <p>Bem‑vindo(a)! Insira seu nome para começar sua jornada:</p>
-        <input id="playerName" type="text" placeholder="Seu nome" />
-        <button id="startButton">Iniciar Jogo</button>
-    </div>
+<body class="bg-blue-50 text-gray-800 flex items-center justify-center min-h-screen p-4">
 
-    <!-- Canvas WebGL utilizado pelo Three.js -->
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="confetti-canvas"></canvas>
 
-    <!-- Sobreposições para diálogos, quizzes e puzzles -->
-    <div id="overlay">
-        <!-- Caixa de diálogo com avatar e texto -->
-        <div id="dialogueBox" class="overlayBox" style="display:none">
-            <img id="dialogueAvatar" src="" alt="avatar" />
-            <div id="dialogueContent">
-                <p id="dialogueText"></p>
-                <button id="dialogueNext">Avançar</button>
+    <!-- Start Screen -->
+    <div id="start-screen" class="w-full max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow-xl">
+        <header class="text-center mb-4">
+            <h1 class="text-4xl font-bold text-blue-800">Bem-vindo à Saga da Imunidade!</h1>
+        </header>
+        <div class="mb-4 p-4 bg-blue-100 rounded-lg">
+            <h2 class="text-xl font-bold text-blue-700 mb-2">Regras do Jogo</h2>
+            <ul class="list-disc list-inside text-gray-700 space-y-1 text-sm">
+                <li>Dois jogadores competem para chegar ao final do tabuleiro.</li>
+                <li>Na sua vez, clique em "Lançar Dado" para se mover.</li>
+                <li>Ao cair em uma casa, você enfrentará uma pergunta surpresa sobre imunidade.</li>
+                <li>Você tem <strong>uma chance</strong> para responder. Se acertar, continua. Se errar, volta 3 casas!</li>
+                <li>O primeiro a chegar na casa final e acertar a última pergunta vence o jogo.</li>
+            </ul>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Player 1 Setup -->
+            <div class="p-4 border border-blue-200 rounded-lg">
+                <h3 class="text-lg font-bold text-blue-800 mb-2">Jogador 1</h3>
+                <input type="text" id="player1-name" placeholder="Digite seu nome" class="w-full p-2 border rounded mb-3">
+                <h4 class="font-semibold mb-2 text-sm">Escolha seu emoji:</h4>
+                <div id="player1-emojis" class="grid grid-cols-5 gap-2"></div>
+            </div>
+            <!-- Player 2 Setup -->
+            <div class="p-4 border border-yellow-300 rounded-lg">
+                <h3 class="text-lg font-bold text-yellow-600 mb-2">Jogador 2</h3>
+                <input type="text" id="player2-name" placeholder="Digite seu nome" class="w-full p-2 border rounded mb-3">
+                <h4 class="font-semibold mb-2 text-sm">Escolha seu emoji:</h4>
+                <div id="player2-emojis" class="grid grid-cols-5 gap-2"></div>
             </div>
         </div>
-        <!-- Contêiner para quizzes (perguntas de múltipla escolha) -->
-        <div id="quizContainer" class="overlayBox" style="display:none"></div>
-        <!-- Contêiner para puzzles (sliders etc.) -->
-        <div id="puzzleContainer" class="overlayBox" style="display:none"></div>
+        <div class="text-center mt-6">
+            <button id="start-game-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-10 rounded-lg shadow-lg text-lg transition-transform transform hover:scale-105">
+                Começar Jogo!
+            </button>
+        </div>
     </div>
 
-    <!-- Tela de ranking local -->
-    <div id="scoreScreen" style="display:none">
-        <h2>Ranking Local</h2>
-        <ul id="scoreList"></ul>
-        <button id="playAgain">Jogar Novamente</button>
+    <!-- Main Game Screen (hidden by default) -->
+    <div id="game-container" class="w-full max-w-7xl mx-auto hidden">
+        <header class="text-center mb-4">
+            <h1 class="text-5xl font-bold text-blue-800">A Saga da Imunidade</h1>
+            <p id="turn-indicator" class="text-xl text-gray-600 mt-2"></p>
+        </header>
+        <main class="bg-white p-4 rounded-2xl shadow-xl flex flex-row items-center gap-8 mt-4" style="background-image: url(tabuleiro.jpg); background-size: cover; background-position: center;">
+            <!-- Controls moved inside -->
+            <div class="flex flex-col items-center gap-8">
+                <div class="dice-container">
+                    <div id="dice" class="dice">
+                        <div class="dice-face front">1</div><div class="dice-face back">6</div><div class="dice-face right">4</div><div class="dice-face left">3</div><div class="dice-face top">2</div><div class="dice-face bottom">5</div>
+                    </div>
+                </div>
+                <button id="roll-dice-btn" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-transform transform hover:scale-105">
+                    Lançar Dado
+                </button>
+            </div>
+            
+            <!-- Game board container -->
+            <div id="game-board-container" class="flex-grow">
+                <svg id="path-lines" class="w-full h-full"></svg>
+                <div id="game-board"></div>
+                <div id="player1-token" class="player-token" title="Jogador 1"></div>
+                <div id="player2-token" class="player-token" title="Jogador 2"></div>
+            </div>
+        </main>
     </div>
 
-    <!-- Script principal da aplicação -->
-    <script src="main.js"></script>
+    <!-- Modal de Desafio -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-8">
+            <h2 id="modal-title" class="text-3xl font-bold text-blue-800 mb-4"></h2>
+            <div id="modal-content" class="text-gray-700 space-y-4"></div>
+             <div id="modal-feedback" class="text-lg font-semibold mt-4"></div>
+        </div>
+    </div>
+
+    <!-- Tela de Vitória -->
+    <div id="victory-screen" class="fixed inset-0 bg-white flex-col items-center justify-center p-4 z-50 text-center">
+        <h2 id="victory-title" class="text-6xl font-bold text-yellow-500 mb-4">VITÓRIA!</h2>
+        <p id="victory-message" class="text-2xl text-blue-800 mb-8"></p>
+        <button id="play-again-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg text-xl transform hover:scale-110 transition-transform">
+            Jogar Novamente
+        </button>
+    </div>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const gameBoard = document.getElementById('game-board');
+        const pathLines = document.getElementById('path-lines');
+        const player1Token = document.getElementById('player1-token');
+        const player2Token = document.getElementById('player2-token');
+        const rollDiceBtn = document.getElementById('roll-dice-btn');
+        const dice = document.getElementById('dice');
+        const turnIndicator = document.getElementById('turn-indicator');
+
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        const modalFeedback = document.getElementById('modal-feedback');
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        
+        const startScreen = document.getElementById('start-screen');
+        const gameContainer = document.getElementById('game-container');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const p1NameInput = document.getElementById('player1-name');
+        const p2NameInput = document.getElementById('player2-name');
+        const p1EmojisContainer = document.getElementById('player1-emojis');
+        const p2EmojisContainer = document.getElementById('player2-emojis');
+
+        const emojis = ['🧑‍🔬', '👨‍⚕️', '🦠', '🧬', '💉', '💊', '🧠', '🤺', '🛡️', '☣️'];
+
+        const pathCoords = [
+            { top: '85%', left: '5%' }, { top: '85%', left: '17%' }, { top: '85%', left: '29%' }, { top: '85%', left: '41%' }, { top: '85%', left: '53%' }, { top: '85%', left: '65%' }, { top: '85%', left: '77%' },
+            { top: '73%', left: '77%' }, { top: '61%', left: '77%' }, { top: '49%', left: '77%' }, { top: '37%', left: '77%' }, { top: '25%', left: '77%' }, { top: '13%', left: '77%' },
+            { top: '13%', left: '65%' }, { top: '13%', left: '53%' }, { top: '13%', left: '41%' }, { top: '13%', left: '29%' }, { top: '13%', left: '17%' },
+            { top: '25%', left: '17%' }, { top: '37%', left: '17%' }, { top: '49%', left: '17%' }, { top: '61%', left: '17%' },
+            { top: '73%', left: '29%' }, { top: '73%', left: '41%' }, { top: '73%', left: '53%' }, { top: '73%', left: '65%' },
+            { top: '61%', left: '65%' }, { top: '49%', left: '65%' }, { top: '37%', left: '65%' }, { top: '25%', left: '65%' },
+            { top: '25%', left: '53%' }, { top: '25%', left: '41%' }, { top: '37%', left: '41%' }, { top: '49%', left: '41%' },
+            { top: '49%', left: '53%' }, { top: '37%', left: '53%' }
+        ];
+
+        const questionsP1 = [
+            { q: 'Contexto: O sistema imune atua como principal defesa contra microrganismos infecciosos. Comando: Qual é a função primária do sistema imune?', o: ['Defender contra microrganismos infecciosos.', 'Produzir energia para o metabolismo celular.', 'Regular a pressão arterial.', 'Controlar a temperatura corporal.'], a: 0 },
+            { q: 'Contexto: Células de defesa reconhecem microrganismos por padrões moleculares associados a patógenos (PAMPs). Comando: O que são PAMPs?', o: ['Moléculas compartilhadas por classes de microrganismos.', 'Genes humanos de defesa.', 'Estruturas únicas das células do hospedeiro.', 'Hormônios reguladores da inflamação.'], a: 0 },
+            { q: 'Contexto: Em resposta inflamatória tardia, uma célula de vida longa substitui os neutrófilos, fagocitando células mortas e promovendo reparo tecidual. Comando: Qual célula tem papel central na limpeza da área inflamada e no início do reparo tecidual?', o: ['Macrófago', 'Neutrófilo', 'Linfócito T CD8+', 'Eosinófilo'], a: 0 },
+            { q: 'Contexto: A inflamação se manifesta clinicamente por sinais cardinais clássicos. Comando: Qual é um dos sinais cardinais da inflamação?', o: ['Rubor', 'Cianose', 'Palidez', 'Hipotensão'], a: 0 },
+            { q: 'Contexto: A febre é uma resposta sistêmica frequente durante infecções, modulada por citocinas inflamatórias que atuam no hipotálamo. Comando: Qual citocina é mais associada à indução de febre?', o: ['IL-1', 'IL-10', 'TNF', 'IL-8'], a: 0 },
+            { q: 'Contexto: A IL-12, produzida por macrófagos e células dendríticas, é essencial para a ativação de células NK. Comando: Qual é o principal efeito da IL-12 na resposta imune inata?', o: ['Estimular produção de IFN-γ por células NK', 'Induzir febre no hipotálamo', 'Aumentar a síntese de anticorpos IgM', 'Promover degranulação de mastócitos'], a: 0 },
+            { q: 'Contexto: Indivíduos sem resposta inflamatória apresentam infecções recorrentes graves. Comando: O que ocorre em um paciente incapaz de montar resposta inflamatória adequada?', o: ['Infecção descontrolada e risco de sepse.', 'Aumento de anticorpos circulantes.', 'Ativação exagerada de células NK.', 'Aumento da apoptose celular programada.'], a: 0 },
+            { q: 'Contexto: O TNF tem efeito potente sobre vasos sanguíneos locais e, em altas concentrações sistêmicas, pode levar a quadros graves. Comando: Qual é uma consequência sistêmica do excesso de TNF?', o: ['Hipotensão e choque séptico', 'Ativação de linfócitos T CD8+', 'Formação de granulomas', 'Produção de anticorpos IgA'], a: 0 },
+            { q: 'Contexto: Certos leucócitos liberam estruturas formadas por DNA e proteínas granulares, criando uma rede que auxilia no combate microbiano. Comando: Qual é a principal função dessas estruturas conhecidas como NETs (armadilhas extracelulares)?', o: ['Aprisionar e eliminar microrganismos extracelulares', 'Estimular produção de anticorpos', 'Neutralizar toxinas plasmáticas', 'Estimular diferenciação de linfócitos T'], a: 0 },
+            { q: 'Contexto: O conceito de "imunidade treinada" desafia a visão clássica sobre a memória imune. Comando: Qual mecanismo epigenético explica como um macrófago se torna "treinado"?', o: ['Modificações em histonas', 'Rearranjo genético', 'Aumento de anticorpos', 'Mutação somática'], a: 0 },
+            { q: 'Contexto: Na obesidade, a inflamação crônica no tecido adiposo pode levar a outras doenças. Comando: Qual citocina, produzida por macrófagos no tecido adiposo, é uma das principais culpadas por causar resistência à insulina?', o: ['TNF-α', 'IL-10', 'IL-4', 'TGF-β'], a: 0 },
+        ];
+        const questionsP2 = [
+            { q: 'Contexto: Quando um patógeno invade o corpo, há dois sistemas de defesa: o inato (imediato) e o adaptativo (mais tardio). Comando: Qual sistema imune responde primeiro após a entrada de um patógeno?', o: ['Sistema inato', 'Sistema adaptativo', 'Sistema endócrino', 'Sistema nervoso'], a: 0 },
+            { q: 'Contexto: Em um ferimento cutâneo infectado, células imunes são rapidamente recrutadas da circulação sanguínea para o local. Comando: Qual célula é predominante nas primeiras horas da inflamação aguda?', o: ['Neutrófilo', 'Linfócito T CD4+', 'Macrófago', 'Eosinófilo'], a: 0 },
+            { q: 'Contexto: Durante a inflamação aguda, duas citocinas são fundamentais para ativar o endotélio, aumentar a permeabilidade vascular e recrutar leucócitos. Comando: Quais são as duas citocinas-chave que desencadeiam tanto efeitos locais quanto sistêmicos na inflamação aguda?', o: ['TNF e IL-1', 'IL-4 e IL-10', 'IL-6 e IL-12', 'IFN-γ e IL-2'], a: 0 },
+            { q: 'Contexto: A produção de IL-6 durante inflamação aguda afeta não apenas o local da infecção, mas também órgãos à distância. Comando: Qual é um efeito sistêmico da IL-6 na inflamação aguda?', o: ['Estímulo à produção de proteínas de fase aguda pelo fígado', 'Aumento da produção de histamina', 'Estímulo direto à fagocitose de neutrófilos', 'Ativação do sistema nervoso simpático'], a: 0 },
+            { q: 'Contexto: Selectinas mediam o \'rolamento\' de neutrófilos nas paredes dos vasos. Comando: Qual molécula facilita o rolamento inicial do neutrófilo no endotélio?', o: ['E-selectina', 'ICAM-1', 'Integrina LFA-1', 'TNF'], a: 0 },
+            { q: 'Contexto: Durante inflamação aguda, a IL-8 exerce efeito crucial sobre células do sangue. Comando: Qual é a principal função da IL-8 na resposta inflamatória?', o: ['Atrair neutrófilos para o local inflamado', 'Estimular linfócitos B a produzir anticorpos', 'Ativar células NK no fígado', 'Estimular mastócitos a liberar histamina'], a: 0 },
+            { q: 'Contexto: O sistema adaptativo gera células de memória após contato com antígenos. Comando: O que caracteriza a memória imunológica?', o: ['Resposta secundária mais rápida e intensa.', 'Aumento da fagocitose inespecífica.', 'Neutralização imediata por citocinas.', 'Estimulação direta de macrófagos.'], a: 0 },
+            { q: 'Contexto: Citocinas pró-inflamatórias não agem apenas localmente; elas induzem alterações metabólicas e comportamentais. Comando: Qual alteração clínica pode ser explicada pelo aumento sistêmico de IL-1 e TNF durante inflamação aguda?', o: ['Hiperglicemia por resistência insulínica', 'Aumento da diurese', 'Hipotermia sustentada', 'Produção aumentada de IgE'], a: 0 },
+            { q: 'Contexto: A célula dendrítica atua como principal ponte entre a imunidade inata e adaptativa. Comando: Por que a célula dendrítica é considerada essencial para iniciar a imunidade adaptativa?', o: ['Porque apresenta antígenos às células T naive.', 'Porque produz anticorpos específicos.', 'Porque recruta neutrófilos diretamente.', 'Porque libera histamina nos tecidos.'], a: 0 },
+            { q: 'Contexto: No Lúpus, o corpo produz autoanticorpos que causam lesão tecidual. Comando: Que princípio fundamental da imunologia falhou em um paciente com Lúpus?', o: ['Autotolerância', 'Memória imunológica', 'Fagocitose', 'Quimiotaxia'], a: 0 },
+            { q: 'Contexto: Em reações alérgicas, uma classe específica de anticorpo é produzida na primeira exposição. Comando: Qual classe de anticorpo "arma" os mastócitos durante a sensibilização a um alérgeno?', o: ['IgE', 'IgG', 'IgM', 'IgA'], a: 0 },
+            { q: 'Contexto: Células dendríticas capturam antígenos e os apresentam em moléculas de MHC. Comando: Qual classe de MHC é usada para apresentar antígenos extracelulares para linfócitos T auxiliares (CD4+)?', o: ['MHC de classe II', 'MHC de classe I', 'CD28', 'TLR4'], a: 0 },
+        ];
+
+        const challengeSpotIndicesP1 = [2, 7, 10, 14, 18, 21, 25, 29, 32, 34, 35];
+        const challengeSpotIndicesP2 = [4, 8, 12, 15, 19, 23, 26, 30, 33, 34, 35];
+        
+        let gameState = {
+            currentPlayer: 1,
+            playerPositions: [0, 0],
+            playerInfo: [
+                { name: 'Jogador 1', emoji: '🧑‍🔬' },
+                { name: 'Jogador 2', emoji: '👨‍⚕️' }
+            ],
+            isMoving: false,
+            nextQuestionIndex: { 1: 0, 2: 0 },
+            currentQuestion: null
+        };
+        
+        function setupStartScreen() {
+            startScreen.style.display = 'block';
+            [p1EmojisContainer, p2EmojisContainer].forEach((container, playerIndex) => {
+                emojis.forEach(emoji => {
+                    const btn = document.createElement('button');
+                    btn.className = 'emoji-btn';
+                    btn.textContent = emoji;
+                    btn.onclick = () => {
+                        container.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+                        btn.classList.add('selected');
+                        gameState.playerInfo[playerIndex].emoji = emoji;
+                    };
+                    container.appendChild(btn);
+                });
+                container.children[playerIndex].classList.add('selected');
+            });
+
+            startGameBtn.onclick = () => {
+                gameState.playerInfo[0].name = p1NameInput.value || 'Jogador 1';
+                gameState.playerInfo[1].name = p2NameInput.value || 'Jogador 2';
+
+                startScreen.style.display = 'none';
+                gameContainer.style.display = 'block';
+                initGame();
+            };
+        }
+
+        function createBoard() {
+            pathCoords.forEach((coord, i) => {
+                const cell = document.createElement('div');
+                cell.classList.add('board-cell', 'path');
+                cell.style.top = coord.top;
+                cell.style.left = coord.left;
+                
+                if (i === pathCoords.length - 1) {
+                    cell.innerHTML = '🏁';
+                    cell.style.backgroundColor = '#f59e0b'; // Amarelo
+                } else {
+                    cell.textContent = i + 1;
+                }
+                
+                gameBoard.appendChild(cell);
+            });
+            drawLines();
+        }
+
+        function drawLines() {
+            setTimeout(() => {
+                const cells = Array.from(document.querySelectorAll('.board-cell'));
+                cells.sort((a, b) => {
+                    if (a.innerHTML === '🏁') return 1;
+                    if (b.innerHTML === '🏁') return -1;
+                    return parseInt(a.textContent) - parseInt(b.textContent);
+                });
+                pathLines.innerHTML = '';
+                for (let i = 0; i < cells.length - 1; i++) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', cells[i].offsetLeft + 25);
+                    line.setAttribute('y1', cells[i].offsetTop + 25);
+                    line.setAttribute('x2', cells[i+1].offsetLeft + 25);
+                    line.setAttribute('y2', cells[i+1].offsetTop + 25);
+                    line.setAttribute('stroke', '#d1d5db');
+                    line.setAttribute('stroke-width', '3');
+                    pathLines.appendChild(line);
+                }
+            }, 100);
+        }
+        
+        function setPlayerPosition(player) {
+            const token = player === 1 ? player1Token : player2Token;
+            const position = gameState.playerPositions[player - 1];
+            updateTokenPosition(token, position);
+        }
+
+        function updateTokenPosition(token, position) {
+            if(position < 0 || position >= pathCoords.length) return;
+            const targetCoord = pathCoords[position];
+            const offset = (token.id === 'player1-token') ? -8 : 8;
+            token.style.top = `calc(${targetCoord.top} - 20px)`;
+            token.style.left = `calc(${targetCoord.left} + ${offset}px)`;
+        }
+
+        function switchPlayer() {
+            gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
+            const playerName = gameState.playerInfo[gameState.currentPlayer - 1].name;
+            turnIndicator.textContent = `Vez de ${playerName}`;
+            rollDiceBtn.disabled = false;
+            gameState.isMoving = false;
+        }
+
+        const diceTransforms = {
+            1: 'rotateY(0deg) rotateX(0deg)', 2: 'rotateX(-90deg)', 3: 'rotateY(90deg)',
+            4: 'rotateY(-90deg)', 5: 'rotateX(90deg)', 6: 'rotateY(180deg)'
+        };
+
+        rollDiceBtn.addEventListener('click', () => {
+            if (gameState.isMoving) return;
+            gameState.isMoving = true;
+            rollDiceBtn.disabled = true;
+
+            const player = gameState.currentPlayer;
+            const challengeSpots = player === 1 ? challengeSpotIndicesP1 : challengeSpotIndicesP2;
+            const currentPos = gameState.playerPositions[player - 1];
+            
+            const nextStop = challengeSpots.find(pos => pos > currentPos);
+
+            let stepsToMove;
+            if (nextStop !== undefined) {
+                stepsToMove = nextStop - currentPos;
+            } else {
+                stepsToMove = (pathCoords.length - 1) - currentPos;
+            }
+            
+            const diceValue = stepsToMove > 0 ? stepsToMove : 1;
+            
+            const randomSpins = 3;
+            dice.style.transform = `rotateX(${randomSpins * 360}deg) rotateY(${randomSpins * 360}deg) ${diceTransforms[diceValue]}`;
+
+            setTimeout(() => movePlayer(player, stepsToMove), 1500);
+        });
+
+        function animateMove(player, startPos, endPos, onComplete) {
+            let currentPos = startPos;
+            const direction = endPos > startPos ? 1 : -1;
+            const token = player === 1 ? player1Token : player2Token;
+        
+            function step() {
+                if (currentPos !== endPos) {
+                    currentPos += direction;
+                    updateTokenPosition(token, currentPos);
+                    setTimeout(step, 200);
+                } else {
+                    gameState.playerPositions[player - 1] = endPos;
+                    if (onComplete) {
+                        onComplete();
+                    }
+                }
+            }
+            step();
+        }
+
+        function movePlayer(player, steps) {
+            const startPos = gameState.playerPositions[player - 1];
+            const endPos = Math.min(pathCoords.length - 1, startPos + steps);
+
+            animateMove(player, startPos, endPos, () => {
+               setTimeout(() => handleLanding(player, endPos), 100);
+            });
+        }
+
+        function handleLanding(player, position) {
+            const challengeSpotsP1 = challengeSpotIndicesP1;
+            const challengeSpotsP2 = challengeSpotIndicesP2;
+            
+            const isPlayer1OnChallenge = player === 1 && challengeSpotsP1.includes(position);
+            const isPlayer2OnChallenge = player === 2 && challengeSpotsP2.includes(position);
+
+            if (isPlayer1OnChallenge || isPlayer2OnChallenge) {
+                showQuestionModal();
+            } else {
+                switchPlayer();
+            }
+        }
+
+        function showQuestionModal() {
+            const player = gameState.currentPlayer;
+            const questions = player === 1 ? questionsP1 : questionsP2;
+            const questionIndex = gameState.nextQuestionIndex[player];
+
+            if (questionIndex >= questions.length) {
+                switchPlayer();
+                return;
+            }
+
+            const question = questions[questionIndex];
+            
+            const correctAnswerText = question.o[question.a];
+            let shuffledOptions = [...question.o];
+            for (let i = shuffledOptions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
+            }
+            const newCorrectIndex = shuffledOptions.indexOf(correctAnswerText);
+
+            gameState.currentQuestion = {
+                q: question.q,
+                options: shuffledOptions,
+                correctIndex: newCorrectIndex
+            };
+            
+            modalTitle.textContent = "Pergunta Desafio!";
+            modalContent.innerHTML = `
+                <p class="text-xl mb-4">${question.q}</p>
+                <div class="space-y-3">
+                    ${shuffledOptions.map((opt, i) => `<button data-index="${i}" class="w-full text-left bg-blue-100 hover:bg-blue-200 p-3 rounded-lg transition-colors duration-200 answer-btn">${opt}</button>`).join('')}
+                </div>
+            `;
+            modalFeedback.innerHTML = `Você tem 1 tentativa.`;
+            modal.classList.remove('hidden');
+
+            document.querySelectorAll('.answer-btn').forEach(btn => btn.addEventListener('click', checkAnswer));
+        }
+
+        function checkAnswer(event) {
+            const selectedIndex = parseInt(event.target.dataset.index);
+            const correctAnswerIndex = gameState.currentQuestion.correctIndex;
+            const player = gameState.currentPlayer;
+
+            document.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
+
+            if (selectedIndex === correctAnswerIndex) {
+                modalFeedback.innerHTML = '<span class="text-green-600">Resposta Correta! Bom trabalho.</span>';
+                gameState.nextQuestionIndex[player]++;
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    if (gameState.playerPositions[player - 1] === pathCoords.length - 1) {
+                        endGame(player);
+                    } else {
+                        switchPlayer();
+                    }
+                }, 1500);
+            } else {
+                modalFeedback.innerHTML = `<span class="text-red-600">Resposta incorreta! Você voltará 3 casas.</span>`;
+                gameState.nextQuestionIndex[player]++;
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    const currentPos = gameState.playerPositions[player - 1];
+                    const newPos = Math.max(0, currentPos - 3);
+                    animateMove(player, currentPos, newPos, switchPlayer);
+                }, 2000);
+            }
+        }
+        
+        function launchConfetti() {
+            const ctx = confettiCanvas.getContext('2d');
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+            let confettiParticles = [];
+            const colors = ['#f59e0b', '#2563eb', '#ffffff', '#fbbf24', '#60a5fa'];
+            
+            class Confetti {
+                constructor(x, y, color) {
+                    this.x = x;
+                    this.y = y;
+                    this.color = color;
+                    this.size = Math.random() * 8 + 4;
+                    this.speedX = Math.random() * 3 - 1.5;
+                    this.speedY = Math.random() * 3 + 1;
+                    this.angle = Math.random() * 2 * Math.PI;
+                    this.angleSpeed = Math.random() * 0.02 - 0.01;
+                }
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                    this.angle += this.angleSpeed;
+                }
+                draw() {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.angle);
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                    ctx.restore();
+                }
+            }
+
+            function createConfetti() {
+                for (let i = 0; i < 400; i++) {
+                    confettiParticles.push(new Confetti(Math.random() * confettiCanvas.width, -Math.random() * confettiCanvas.height, colors[Math.floor(Math.random() * colors.length)]));
+                }
+            }
+            
+            function animateConfetti() {
+                ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+                confettiParticles.forEach((p, index) => {
+                    p.update();
+                    p.draw();
+                    if (p.y > confettiCanvas.height) {
+                        confettiParticles.splice(index, 1);
+                    }
+                });
+                if (confettiParticles.length > 0) {
+                   requestAnimationFrame(animateConfetti);
+                } else {
+                    ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+                }
+            }
+            createConfetti();
+            animateConfetti();
+        }
+
+        function endGame(winner) {
+            gameState.isMoving = true; 
+            
+            launchConfetti();
+
+            const victoryScreen = document.getElementById('victory-screen');
+            const victoryMessage = document.getElementById('victory-message');
+            const playAgainBtn = document.getElementById('play-again-btn');
+
+            const winnerInfo = gameState.playerInfo[winner - 1];
+            victoryMessage.innerHTML = `<span class="text-7xl mb-4 block">${winnerInfo.emoji}</span> Parabéns, ${winnerInfo.name}! Você venceu a Saga da Imunidade!`;
+            
+            gameContainer.style.display = 'none';
+            victoryScreen.style.display = 'flex';
+
+            playAgainBtn.onclick = () => {
+                location.reload();
+            };
+        }
+
+        function initGame() {
+            player1Token.textContent = gameState.playerInfo[0].emoji;
+            player2Token.textContent = gameState.playerInfo[1].emoji;
+            player1Token.title = gameState.playerInfo[0].name;
+            player2Token.title = gameState.playerInfo[1].name;
+
+            createBoard();
+            setPlayerPosition(1);
+            setPlayerPosition(2);
+            rollDiceBtn.disabled = false;
+            turnIndicator.textContent = `Vez de ${gameState.playerInfo[0].name}`;
+            window.addEventListener('resize', () => {
+                drawLines();
+                confettiCanvas.width = window.innerWidth;
+                confettiCanvas.height = window.innerHeight;
+            });
+        }
+        
+        setupStartScreen();
+    });
+    </script>
 </body>
 </html>
+
